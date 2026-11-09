@@ -14,13 +14,13 @@ A Codex skill that mirrors a local folder to Google Drive. It copies new or chan
 
    > Install the skill in this folder as `local-to-gdrive` in my personal Codex skills directory.
 
-3. In a new Codex turn, try this with a folder you have under `~/Documents`.
+3. In a new Codex turn, ask to copy a folder under `~/Documents`. Codex can select the installed skill automatically.
 
-   > Use `$local-to-gdrive` to copy `sample-project` to Google Drive.
+   > Copy `sample-project` to Google Drive.
 
    To specify an absolute path, replace the example below with your own path under Documents.
 
-   > Use `$local-to-gdrive` to copy `/Users/example/Documents/sample-project` to Google Drive.
+   > Copy `/Users/example/Documents/sample-project` to Google Drive.
 
    Codex should pass the path relative to Documents (`sample-project` here) to the helper.
 
