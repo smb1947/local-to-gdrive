@@ -2,6 +2,10 @@
 
 A Codex skill that mirrors a local folder to Google Drive. It copies new or changed files and can preview the plan before making changes. Current version is `v0.1.0`.
 
+## Usage
+
+Ask Codex to use `$local-to-gdrive` to copy or preview a local folder. See [SKILL.md](SKILL.md) for the full workflow.
+
 ## How it works
 
 1. **Connect Drive.** Check the Google Drive plugin and set it up if needed.
@@ -20,8 +24,6 @@ A Codex skill that mirrors a local folder to Google Drive. It copies new or chan
 
 After a successful transfer, the skill stores the local file checksum and current Drive revision ID in a local SQLite cache keyed by Drive account and file ID. On the next run, it skips the transfer when both values still match. A missing pair or a change on either side triggers an upload or update. The mirror uses Drive metadata and revision IDs for verification and skips content downloads.
 
-## Usage and tests
-
-Ask Codex to use `$local-to-gdrive` to copy or preview a local folder. See [SKILL.md](SKILL.md) for the full workflow.
+## Tests
 
 Run `python3 -m unittest discover -s tests` from the repository root. Tests build synthetic sources in temporary directories, simulate Drive inventories, and clean up automatically.
