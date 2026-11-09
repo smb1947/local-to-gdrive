@@ -1,6 +1,12 @@
 ---
 name: local-to-gdrive
 description: Mirror local folders from Documents to My Drive/Codex. Preview changes or manage saved destinations. Set up Google Drive when needed.
+license: MIT
+metadata:
+  version: "0.1.0"
+  repository: "https://github.com/smb1947/local-to-gdrive"
+  maintainer: "Shankar Binjawadgi"
+  compatibility: "Requires Codex, Python 3.9 or later, and access to the Google Drive plugin."
 ---
 
 # Local to GDrive
