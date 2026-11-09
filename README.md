@@ -65,6 +65,10 @@ After a successful transfer, the skill saves the local checksum and current Driv
 | Preview | The plan is shown with zero Drive or destination-mapping changes. |
 | Upload or verification fails | The result identifies the failure and reports the mirror as incomplete. |
 
+## Run logs
+
+Each copy that reaches planning writes a private file at `~/.config/codex2gdrive/runs/<run_id>.jsonl`. It records the source and destination trees, the new, updated, and skipped paths in the plan, and execution checkpoints through final verification. The skill reports the log path at the end. Previews leave no run log.
+
 ## Tests
 
 Run `python3 -m unittest discover -s tests` from the repository root. The tests create temporary local folders, supply simulated Drive responses, and check the real helper’s results.

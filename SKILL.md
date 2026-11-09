@@ -34,6 +34,7 @@ Show each step in chat as it happens. If blocked, say where it stopped, why, and
 - Run `scan --mirror`, get a fresh Drive listing, and run `plan --mirror`. Compare folder paths, local checksums, and current Drive revision IDs. Skip dot-prefixed paths and zero-byte files. Include empty folders.
 - Skip a file if its local checksum and Drive revision match the saved pair. Upload once if there is no pair. See [revision tracking](references/handoff.md#revision-tracking).
 - **Show** new uploads, updates, unchanged files, empty files skipped from the source, folders to create, items to recover, and any errors.
+- For a copy, include `--record-run` in the plan command to save the two trees and copy plan to a local file. See [run logs](references/handoff.md#run-logs).
 - For a preview, stop after showing the plan. A preview makes no Drive or mapping changes.
 
 ## Step 5 · Copy and verify
@@ -41,6 +42,8 @@ Show each step in chat as it happens. If blocked, say where it stopped, why, and
 - Create missing folders and copy only new or changed files. Confirm the upload response, file metadata, and revision before moving obsolete items to recovery outside the destination. Follow the [mirror execution rules](references/handoff.md#mirror-execution).
 - Save the local checksum and the new Drive revision after a successful upload. Do not download Drive file contents.
 - **Show** progress from verified work, for example “120 of 300 transfers verified (40%).” Report folder creation and recovery separately when relevant.
+- Append a checkpoint when execution starts, after each folder, transfer, or recovery batch, and if execution stops early. Use the same plan file for each checkpoint.
 - Run `verify-mirror` against a fresh Drive inventory. Report verified copies, unchanged files, skipped empty files, recovered items, failures, and the destination and recovery links when applicable. Say **Mirror check complete** only if verification passes.
+- Show the run log path if it was created. Report any logging errors separately from the copy result.
 
 For local mapping requests, run `mappings` or `unmap <source>` without connecting to Drive.

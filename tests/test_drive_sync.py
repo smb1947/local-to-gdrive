@@ -83,6 +83,76 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(app.relative('sample folder with spaces'), 'sample folder with spaces')
         self.assertEqual(app.relative('work/notes'), 'work/notes')
 
+    def test_apply_run_log_records_trees_plan_and_checkpoints(self):
+        self.write_tree({'new.txt': b'new', 'update.txt': b'newer', 'same.txt': b'same',
+                         'empty.txt': b''}, folders=('docs',))
+        app.bind('sample-project', context())
+        app.checksum_cache('remember', {'account_id': 'account-1', 'files': [{
+            'file_id': 'same-id', 'revision_id': 'r1', 'size': 4,
+            'md5': app.md5(self.source / 'same.txt'),
+        }]}, uploaded=True)
+        local_path = self.home / 'local.json'
+        remote_path = self.home / 'remote.json'
+        plan_path = self.home / 'plan.json'
+        app.write_json(local_path, app.scan('sample-project', mirror=True))
+        app.write_json(remote_path, {'context': context(), 'complete': True, 'files': [
+            {'path': 'update.txt', 'id': 'update-id', 'kind': 'file', 'size': 3, 'revision_id': 'r0'},
+            {'path': 'same.txt', 'id': 'same-id', 'kind': 'file', 'size': 4, 'revision_id': 'r1'},
+        ]})
+        args = ['plan', '--mirror', '--local', str(local_path), '--remote', str(remote_path),
+                '--output', str(plan_path)]
+        log_dir = app.state_dir() / 'runs'
+        self.assertEqual(app.main(args), 0)
+        preview = app.read_json(plan_path)
+        self.assertFalse(log_dir.exists())
+        self.assertEqual(app.main(args + ['--record-run']), 0)
+        plan = app.read_json(plan_path)
+        for key in ('actions', 'mapping', 'errors', 'create_folders', 'source_snapshot'):
+            self.assertEqual(plan[key], preview[key])
+        log_path = log_dir / f"{plan['run_id']}.jsonl"
+        self.assertEqual(log_path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(app.main(['checkpoint', '--plan', str(plan_path), 'transfers',
+                                   '--completed', '2', '--failed', '0']), 0)
+        receipts_path = self.home / 'receipts.json'
+        receipts = self.receipt(plan, 'new.txt', 'new-id')
+        receipts['files'] += self.receipt(plan, 'update.txt', 'update-id')['files']
+        app.write_json(receipts_path, receipts)
+        self.assertEqual(app.main(['finish', '--plan', str(plan_path), '--receipts', str(receipts_path)]), 0)
+        final_remote = app.read_json(remote_path)
+        final_remote['files'] = [
+            {'path': name, 'id': ident, 'kind': 'file', 'size': size, 'revision_id': 'r1'}
+            for name, ident, size in [('new.txt', 'new-id', 3), ('update.txt', 'update-id', 5),
+                                      ('same.txt', 'same-id', 4)]
+        ] + [{'path': 'docs', 'id': 'docs-id', 'kind': 'folder'}]
+        app.write_json(remote_path, final_remote)
+        self.assertEqual(app.main(['verify-mirror', '--plan', str(plan_path), '--remote', str(remote_path)]), 0)
+        planned, progress, finish, verification = map(json.loads, log_path.read_text().splitlines())
+        self.assertEqual(planned['source_tree'], {
+            'folders': ['docs'], 'files': ['new.txt', 'same.txt', 'update.txt'], 'skipped_empty': ['empty.txt'],
+        })
+        self.assertEqual(planned['destination_tree'], [
+            {'path': 'update.txt', 'kind': 'file'}, {'path': 'same.txt', 'kind': 'file'},
+        ])
+        self.assertEqual({key: planned['copy_plan'][key] for key in ('new', 'update', 'skipped')},
+                         {'new': ['new.txt'], 'update': ['update.txt'], 'skipped': ['same.txt']})
+        self.assertEqual((progress['event'], progress['completed']), ('transfers', 2))
+        self.assertEqual((finish['event'], finish['status']), ('finish', 'complete'))
+        self.assertEqual((verification['event'], verification['status']), ('verify_mirror', 'complete'))
+
+    def test_run_log_write_failure_does_not_fail_plan(self):
+        self.write()
+        app.bind('sample-project', context())
+        local_path, remote_path, plan_path = (self.home / name for name in ('local', 'remote', 'plan'))
+        app.write_json(local_path, app.scan('sample-project', mirror=True))
+        app.write_json(remote_path, {'context': context(), 'complete': True, 'files': []})
+        (app.state_dir() / 'runs').write_text('blocks the log directory')
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            result = app.main(['plan', '--mirror', '--record-run', '--local', str(local_path),
+                               '--remote', str(remote_path), '--output', str(plan_path)])
+        self.assertEqual(result, 0)
+        self.assertIn('Could not write run log', stderr.getvalue())
+        self.assertEqual(app.read_json(plan_path)['actions'][0]['action'], 'upload')
+
     def test_invalid_paths_rejected(self):
         for name in ('', '.', '/tmp', '../sample-project', 'sample-project/../other', 'remote:folder', 'x\\y'):
             with self.subTest(name=name), self.assertRaises(app.SyncError):
