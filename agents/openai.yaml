@@ -1,0 +1,4 @@
+interface:
+  display_name: "Local to GDrive"
+  short_description: "Mirror local Documents folders to Google Drive"
+  default_prompt: "Use $local-to-gdrive to copy stories to Google Drive."
