@@ -10,7 +10,7 @@ People who keep project folders locally want an up-to-date copy in Google Drive.
 | --- | --- | --- |
 | **Google Drive web uploads** | Good for one-off copies. | On repeat uploads, users have to pick which files to upload again, remove obsolete items, and check that the destination matches. Uploading the whole folder again is simpler, but retransferring unchanged files wastes bandwidth. [Google Drive upload guide](https://support.google.com/drive/answer/2424368) |
 | **Google Drive for desktop** | Syncs changes automatically with streamed files or a full local copy. | **Latency.** In streaming mode, opening an uncached file can require a download, which can slow work in the Codex workspace. [Drive for desktop on macOS](https://support.google.com/drive/answer/12178485)<br>**Rate limits.** Frequent edits and generated files can add background sync traffic. If that traffic hits Drive's upload or download limits, sync can be delayed. [Google Drive troubleshooting](https://support.google.com/drive/answer/2565956) |
-| **rclone** | Supports incremental one-way sync, dry runs, and a backup directory. | Users configure the Drive connection and choose paths and flags themselves. [rclone sync](https://rclone.org/commands/rclone_sync/) · [rclone configuration and flags](https://rclone.org/docs/) |
+| **rclone** | Supports incremental one-way sync, dry runs, and a backup directory. | Designed as a technical command-line tool for direct use. Users configure the Drive connection and choose paths and flags themselves. Using it as a Codex skill requires a separate skill wrapper. [rclone sync](https://rclone.org/commands/rclone_sync/) · [rclone configuration and flags](https://rclone.org/docs/) |
 
 ## Goal
 
