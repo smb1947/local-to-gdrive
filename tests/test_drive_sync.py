@@ -1,3 +1,11 @@
+"""Exercise the real sync helper using temporary files and simulated Drive inputs.
+
+Each test gets its own home directory, source tree, mappings, and revision cache.
+Tests supply Drive inventory and transfer receipts as data, then assert what the
+helper computes or verifies. No Codex session, plugin, or network call is involved.
+GitHub Actions discovers this same suite with Python's unittest loader.
+"""
+
 import base64
 import contextlib
 from datetime import datetime, timedelta, timezone
