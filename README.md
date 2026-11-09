@@ -2,12 +2,6 @@
 
 A Codex skill that mirrors a local folder to Google Drive. It copies new or changed files and can preview the plan before making changes. Current version is `v0.1.0`.
 
-## Defaults
-
-- **Source** is a folder under `~/Documents`.
-- **Destination** is `My Drive/Codex/<source-folder>`. For example, `~/Documents/sample-project` mirrors to `My Drive/Codex/sample-project`.
-- **Excluded** are dot-prefixed files and folders (including `.git`) and zero-byte files. Visible empty folders are mirrored.
-
 ## How it works
 
 1. **Connect Drive.** Check the Google Drive plugin and set it up if needed.
@@ -15,6 +9,12 @@ A Codex skill that mirrors a local folder to Google Drive. It copies new or chan
 3. **Check the helper.** Verify Python 3.9+ and the required Drive operations.
 4. **Preview the plan.** Compare both trees and report new, changed, unchanged, and obsolete items. A preview makes no changes in Drive.
 5. **Copy and verify.** Copy new or changed files and move obsolete items to recovery outside the mirror. Recheck the destination before reporting success.
+
+## Defaults
+
+- **Source** is a folder under `~/Documents`.
+- **Destination** is `My Drive/Codex/<source-folder>`. For example, `~/Documents/sample-project` mirrors to `My Drive/Codex/sample-project`.
+- **Excluded** are dot-prefixed files and folders (including `.git`) and zero-byte files. Visible empty folders are mirrored.
 
 ## Revision cache
 
