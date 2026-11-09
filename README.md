@@ -4,7 +4,21 @@ A Codex skill that mirrors a local folder to Google Drive. It copies new or chan
 
 ## Usage
 
-Ask Codex to use `$local-to-gdrive` to copy or preview a local folder. See [SKILL.md](SKILL.md) for the full workflow.
+1. Clone the repo.
+
+   ```bash
+   git clone https://github.com/smb1947/local-to-gdrive.git
+   ```
+
+2. Open the cloned folder in Codex and ask it to install the skill.
+
+   > Install the skill in this folder as `local-to-gdrive` in my personal Codex skills directory.
+
+3. In a new Codex turn, try this with a folder you have under `~/Documents`.
+
+   > Use `$local-to-gdrive` to copy `sample-project` to Google Drive.
+
+See [SKILL.md](SKILL.md) for the full workflow.
 
 ## How it works
 
