@@ -15,10 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import drive_sync as app
 
 
-def context(account='account-1', destination='stories-id'):
+def context(account='account-1', destination='sample-project-id'):
     return {'provider': 'google-drive', 'account_id': account, 'folders': [
         {'id': 'codex-id', 'name': 'Codex', 'parent_id': 'root', 'kind': 'folder'},
-        {'id': destination, 'name': 'stories', 'parent_id': 'codex-id', 'kind': 'folder'}]}
+        {'id': destination, 'name': 'sample-project', 'parent_id': 'codex-id', 'kind': 'folder'}]}
 
 
 def capabilities():
@@ -32,7 +32,7 @@ class SyncTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name)
-        self.source = self.home / 'Documents/stories'
+        self.source = self.home / 'Documents/sample-project'
         self.source.mkdir(parents=True)
         self.stack = contextlib.ExitStack()
         self.addCleanup(self.stack.close)
@@ -46,9 +46,16 @@ class SyncTests(unittest.TestCase):
         file.write_bytes(content)
         return file
 
+    def write_tree(self, files, *, folders=()):
+        """Build just the synthetic source paths needed by a scenario."""
+        for folder in folders:
+            (self.source / folder).mkdir(parents=True, exist_ok=True)
+        for path, content in files.items():
+            self.write(path, content)
+
     def plan(self, files=None, *, mirror=False):
-        app.bind('stories', context())
-        return app.build_plan(app.scan('stories', mirror=mirror),
+        app.bind('sample-project', context())
+        return app.build_plan(app.scan('sample-project', mirror=mirror),
                               {'context': context(), 'complete': True, 'files': files or []},
                               mirror=mirror)
 
@@ -57,25 +64,25 @@ class SyncTests(unittest.TestCase):
         chain = context()
         if '/' in path:
             chain['folders'].append({'id': 'docs-id', 'name': Path(path).parent.name,
-                                     'parent_id': 'stories-id', 'kind': 'folder'})
+                                     'parent_id': 'sample-project-id', 'kind': 'folder'})
         return {'run_id': plan['run_id'], 'files': [{
             'path': path, 'status': 'verified', 'context': chain,
             'remote': {'id': ident, 'name': Path(path).name, 'parent_id': chain['folders'][-1]['id'],
                        'size': action['size'], 'md5': action['md5'], 'revision_id': 'r1'}}]}
 
     def test_relative_paths_and_nested_names(self):
-        self.assertEqual(app.relative('./stories/'), 'stories')
-        self.assertEqual(app.relative('easy peasy recipes'), 'easy peasy recipes')
+        self.assertEqual(app.relative('./sample-project/'), 'sample-project')
+        self.assertEqual(app.relative('sample folder with spaces'), 'sample folder with spaces')
         self.assertEqual(app.relative('work/notes'), 'work/notes')
 
     def test_invalid_paths_rejected(self):
-        for name in ('', '.', '/tmp', '../stories', 'stories/../other', 'remote:folder', 'x\\y'):
+        for name in ('', '.', '/tmp', '../sample-project', 'sample-project/../other', 'remote:folder', 'x\\y'):
             with self.subTest(name=name), self.assertRaises(app.SyncError):
                 app.relative(name)
 
     def test_missing_or_nonfolder_source_rejected(self):
         self.write()
-        for name in ('missing', 'stories/report.txt'):
+        for name in ('missing', 'sample-project/report.txt'):
             with self.assertRaises(app.SyncError):
                 app.source_folder(name)
 
@@ -83,7 +90,7 @@ class SyncTests(unittest.TestCase):
         self.write('.hidden', b'\x00\xff')
         self.write('docs/note.txt', b'note')
         (self.source/'linked').symlink_to(self.home)
-        manifest = app.scan('stories')
+        manifest = app.scan('sample-project')
         self.assertEqual([f['path'] for f in manifest['files']], ['.hidden', 'docs/note.txt'])
         self.assertIn('linked', manifest['skipped_links_or_special'])
 
@@ -104,7 +111,7 @@ class SyncTests(unittest.TestCase):
             self.assertNotIn('.git', path.relative_to(self.source).parts)
             return original(path)
         with patch.object(app, 'file_snapshot', side_effect=snapshot):
-            manifest = app.scan('stories')
+            manifest = app.scan('sample-project')
             plan = self.plan()
         self.assertEqual({item['path'] for item in manifest['files']},
                          {'.gitignore', '.github/workflows/check.yml', 'report.txt'})
@@ -115,24 +122,24 @@ class SyncTests(unittest.TestCase):
 
     def test_explicit_source_inside_git_is_rejected(self):
         self.write('.git/objects/object')
-        for source in ('stories/.git', 'stories/.git/objects'):
+        for source in ('sample-project/.git', 'sample-project/.git/objects'):
             with self.subTest(source=source), self.assertRaisesRegex(app.SyncError, 'Git metadata'):
                 app.scan(source)
 
     def test_persist_mapping_without_credentials(self):
-        app.bind('stories', context())
-        value = app.mappings()['mappings']['stories']
-        self.assertEqual(value['destination_id'], 'stories-id')
-        self.assertEqual(value['destination_path'], 'stories')
+        app.bind('sample-project', context())
+        value = app.mappings()['mappings']['sample-project']
+        self.assertEqual(value['destination_id'], 'sample-project-id')
+        self.assertEqual(value['destination_path'], 'sample-project')
         self.assertNotIn('token', value)
-        self.assertNotIn('stories/child', app.mappings()['mappings'])
+        self.assertNotIn('sample-project/child', app.mappings()['mappings'])
 
     def test_root_outside_codex_and_broken_ancestry_rejected(self):
         for field, value in [('name', 'Backups'), ('parent_id', 'elsewhere')]:
             data = context()
             data['folders'][0][field] = value
             with self.assertRaises(app.SyncError):
-                app.bind('stories', data)
+                app.bind('sample-project', data)
 
     def test_new_files_are_upload_actions(self):
         self.write()
@@ -164,9 +171,8 @@ class SyncTests(unittest.TestCase):
         # Drive contains ABC One/report.txt and an identical unchanged.txt.
         # Expect the two missing folders to be created and the new report uploaded. Skip unchanged.txt
         # and schedule ABC One for recovery as a single folder, including its contents.
-        self.write('ABC Two/report.txt')
-        self.write('unchanged.txt')
-        (self.source / 'empty').mkdir()
+        self.write_tree({'ABC Two/report.txt': b'Version 1', 'unchanged.txt': b'Version 1'},
+                        folders=('empty',))
         app.checksum_cache('remember', {'account_id': 'account-1', 'files': [
             {'file_id': 'same-file', 'revision_id': 'r1', 'revision_after': 'r1',
              'size': 9, 'md5': app.md5(self.source / 'unchanged.txt')}]})
@@ -201,14 +207,14 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(plan['actions'][0]['action'], 'upload')
 
     def test_scope_resolves_default_and_rejects_conflicting_saved_destination(self):
-        # The source is an existing ~/Documents/stories folder with no saved mapping yet.
-        # Expect My Drive/Codex/stories by default and My Drive/Codex/other when requested.
-        # Once stories is bound to its default, switching to other requires an explicit rebind.
-        self.assertEqual(app.scope('stories')['destination_path'], 'My Drive/Codex/stories')
-        self.assertEqual(app.scope('stories', 'other')['destination_path'], 'My Drive/Codex/other')
-        app.bind('stories', context())
+        # The source is an existing ~/Documents/sample-project folder with no saved mapping yet.
+        # Expect My Drive/Codex/sample-project by default and My Drive/Codex/other when requested.
+        # Once sample-project is bound to its default, switching to other requires an explicit rebind.
+        self.assertEqual(app.scope('sample-project')['destination_path'], 'My Drive/Codex/sample-project')
+        self.assertEqual(app.scope('sample-project', 'other')['destination_path'], 'My Drive/Codex/other')
+        app.bind('sample-project', context())
         with self.assertRaises(app.SyncError):
-            app.scope('stories', 'other')
+            app.scope('sample-project', 'other')
 
     def test_mirror_preflight_requires_move_support(self):
         # The connector supports listing and copying files but initially cannot move them.
@@ -226,14 +232,14 @@ class SyncTests(unittest.TestCase):
     def test_mirror_uses_resolved_destination_without_requiring_trash_status(self):
         # A matching folder ID and parent are enough to plan even when the
         # connector omits the Trash flag or reports that the folder is in Trash.
-        app.bind('stories', context())
-        manifest = app.scan('stories', mirror=True)
+        app.bind('sample-project', context())
+        manifest = app.scan('sample-project', mirror=True)
         for folder_fields in ({}, {'trashed': True}):
             chain = context()
             chain['folders'][0].update(folder_fields)
             with self.subTest(folder_fields=folder_fields):
                 plan = app.build_plan(manifest, {'context': chain, 'complete': True, 'files': []}, mirror=True)
-                self.assertEqual(plan['mapping']['destination_id'], 'stories-id')
+                self.assertEqual(plan['mapping']['destination_id'], 'sample-project-id')
 
     def test_scope_reports_the_expected_path_for_a_missing_source(self):
         with self.assertRaisesRegex(app.SyncError, 'Source folder not found: .*Documents/missing'):
@@ -322,14 +328,14 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(app.main(command), 0)
 
     def test_mirror_rejects_destination_with_another_mapping_inside_it(self):
-        # Source stories/nested/ contains report.txt and already has its own saved mapping.
-        # Its Drive destination, My Drive/Codex/stories/nested, sits inside the parent mirror.
-        # Expect planning for stories to stop before it can alter the separately mapped folder.
+        # Source sample-project/nested/ contains report.txt and already has its own saved mapping.
+        # Its Drive destination, My Drive/Codex/sample-project/nested, sits inside the parent mirror.
+        # Expect planning for sample-project to stop before it can alter the separately mapped folder.
         self.write('nested/report.txt')
         nested = context()
         nested['folders'].append({'name': 'nested', 'kind': 'folder',
-                                  'id': 'nested-id', 'parent_id': 'stories-id'})
-        app.bind('stories/nested', nested)
+                                  'id': 'nested-id', 'parent_id': 'sample-project-id'})
+        app.bind('sample-project/nested', nested)
         with self.assertRaisesRegex(app.SyncError, 'overlaps'):
             self.plan(mirror=True)
 
@@ -338,11 +344,13 @@ class SyncTests(unittest.TestCase):
         # Drive contains docs/.remote and .drive-only/note.txt.
         # The visible tree on both sides is just docs/. Expect no uploads or recovery moves.
         # A new dotfile added during the run should still let final verification pass.
-        self.write('.env')
-        self.write('.git/config')
-        self.write('docs/.cache/note.txt')
-        self.write('docs/.DS_Store')
-        manifest = app.scan('stories', mirror=True)
+        self.write_tree({
+            '.env': b'EXAMPLE=1',
+            '.git/config': b'synthetic git config',
+            'docs/.cache/note.txt': b'synthetic cached note',
+            'docs/.DS_Store': b'synthetic Finder metadata',
+        })
+        manifest = app.scan('sample-project', mirror=True)
         self.assertEqual(manifest['files'], [])
         self.assertEqual(manifest['folders'], ['docs'])
         remote_files = [
@@ -405,23 +413,23 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(len(plan['errors']), 1)
 
     def test_duplicates_and_partial_listings_rejected(self):
-        app.bind('stories', context())
+        app.bind('sample-project', context())
         duplicate = {'path':'x','kind':'file','id':'id','size':0,'md5':'0'*32}
         for remote in ({'context':context(),'complete':False,'files':[]},
                        {'context':context(),'complete':True,'files':[duplicate,duplicate]}):
             with self.assertRaises(app.SyncError):
-                app.build_plan(app.scan('stories'), remote)
+                app.build_plan(app.scan('sample-project'), remote)
 
     def test_account_switch_and_same_name_different_id_rejected(self):
-        app.bind('stories', context())
+        app.bind('sample-project', context())
         for other in (context(account='another'), context(destination='another-id')):
             with self.assertRaises(app.SyncError):
-                app.build_plan(app.scan('stories'), {'context':other,'complete':True,'files':[]})
+                app.build_plan(app.scan('sample-project'), {'context':other,'complete':True,'files':[]})
 
     def test_stale_manifest_rejected(self):
         self.write()
-        app.bind('stories', context())
-        manifest = app.scan('stories')
+        app.bind('sample-project', context())
+        manifest = app.scan('sample-project')
         self.write(content=b'edited')
         with self.assertRaises(app.SyncError):
             app.build_plan(manifest, {'context':context(),'complete':True,'files':[]})
@@ -464,8 +472,8 @@ class SyncTests(unittest.TestCase):
         plan = self.plan()
         self.assertEqual(app.finish(plan, self.receipt(plan, 'docs/note.txt'))['counts']['uploaded'], 1)
         receipt = self.receipt(plan, 'docs/note.txt')
-        receipt['files'][0]['context']['folders'][1]['id'] = 'other-stories'
-        receipt['files'][0]['context']['folders'][2]['parent_id'] = 'other-stories'
+        receipt['files'][0]['context']['folders'][1]['id'] = 'other-sample-project'
+        receipt['files'][0]['context']['folders'][2]['parent_id'] = 'other-sample-project'
         self.assertEqual(app.finish(plan, receipt)['counts']['failed'], 1)
 
     def test_source_changed_after_plan_is_not_success(self):
@@ -529,8 +537,8 @@ class SyncTests(unittest.TestCase):
         self.write()
         context_file, manifest, remote, plan_file, receipts = [self.home/name for name in ('context.json','local.json','remote.json','plan.json','receipts.json')]
         app.write_json(context_file, context())
-        self.assertEqual(app.main(['bind','stories','--context',str(context_file)]), 0)
-        self.assertEqual(app.main(['scan','stories','--output',str(manifest)]), 0)
+        self.assertEqual(app.main(['bind','sample-project','--context',str(context_file)]), 0)
+        self.assertEqual(app.main(['scan','sample-project','--output',str(manifest)]), 0)
         app.write_json(remote, {'context':context(),'complete':True,'files':[]})
         self.assertEqual(app.main(['plan','--local',str(manifest),'--remote',str(remote),'--output',str(plan_file)]), 0)
         app.write_json(receipts, self.receipt(app.read_json(plan_file)))
@@ -538,8 +546,8 @@ class SyncTests(unittest.TestCase):
 
     def test_unmap_does_not_delete_files(self):
         self.write()
-        app.bind('stories', context())
-        self.assertEqual(app.main(['unmap','stories']), 0)
+        app.bind('sample-project', context())
+        self.assertEqual(app.main(['unmap','sample-project']), 0)
         self.assertTrue((self.source/'report.txt').exists())
         self.assertEqual(app.mappings()['mappings'], {})
 

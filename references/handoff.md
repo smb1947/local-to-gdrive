@@ -29,16 +29,16 @@ For a mirror, also set `move_items` and `read_revision` from the current tool sc
   "account_id": "profile-id-from-plugin",
   "folders": [
     {"id": "codex-id", "name": "Codex", "parent_id": "root", "kind": "folder"},
-    {"id": "stories-id", "name": "stories", "parent_id": "codex-id", "kind": "folder"}
+    {"id": "sample-project-id", "name": "sample-project", "parent_id": "codex-id", "kind": "folder"}
   ]
 }
 ```
 
-Include the full verified ancestry from Codex to the destination. Normalize the first parent to `root` only after comparing its actual parent ID with My Drive root metadata. For a nested destination, include every ancestor. `bind stories --context context.json` saves the IDs, account, and destination path.
+Include the full verified ancestry from Codex to the destination. Normalize the first parent to `root` only after comparing its actual parent ID with My Drive root metadata. For a nested destination, include every ancestor. `bind sample-project --context context.json` saves the IDs, account, and destination path.
 
 ## Inventories and plan
 
-`scan stories --output local.json` creates the local manifest. Do not edit its contents.
+`scan sample-project --output local.json` creates the local manifest. Do not edit its contents.
 
 A complete normalized remote inventory has the following structure.
 
@@ -85,13 +85,13 @@ It returns only `size` and `md5`. It never calls Drive APIs, needs no credential
         "account_id": "profile-id-from-plugin",
         "folders": [
           {"id": "codex-id", "name": "Codex", "parent_id": "root", "kind": "folder"},
-          {"id": "stories-id", "name": "stories", "parent_id": "codex-id", "kind": "folder"}
+          {"id": "sample-project-id", "name": "sample-project", "parent_id": "codex-id", "kind": "folder"}
         ]
       },
       "remote": {
         "id": "observed-file-id",
         "name": "report.txt",
-        "parent_id": "stories-id",
+        "parent_id": "sample-project-id",
         "size": 9,
         "revision_id": "observed-current-revision-id"
       }

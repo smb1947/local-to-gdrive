@@ -70,7 +70,7 @@ def log_event(event, **details):
 
 def relative(value):
     if not isinstance(value, str) or not value or any(c in value for c in ('\\', ':', '\x00', '\n', '\r')):
-        raise SyncError('Use a relative folder path such as stories or work/notes.')
+        raise SyncError('Use a relative folder path such as sample-project or work/notes.')
     path = PurePosixPath(value)
     if path.is_absolute() or '..' in path.parts or str(path) == '.':
         raise SyncError('Paths must stay within their root and name a specific folder or file.')
