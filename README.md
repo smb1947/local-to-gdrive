@@ -1,5 +1,7 @@
 # Local to GDrive
 
+[![Tests on main](https://github.com/smb1947/local-to-gdrive/actions/workflows/tests.yml/badge.svg?branch=main&event=push)](https://github.com/smb1947/local-to-gdrive/actions/workflows/tests.yml?query=branch%3Amain+event%3Apush)
+
 A Codex skill that mirrors a local folder to Google Drive. It copies new or changed files and can preview the plan before making changes. Current version is `v0.1.0`.
 
 ## Usage
@@ -46,4 +48,8 @@ After a successful transfer, the skill stores the local file checksum and curren
 
 ## Tests
 
-Run `python3 -m unittest discover -s tests` from the repository root. Tests build synthetic sources in temporary directories, simulate Drive inventories, and clean up automatically.
+Run `python3 -m unittest discover -s tests` from the repository root.
+
+Each test creates a temporary local source and supplies synthetic Drive inventories, revision IDs, or transfer receipts as needed. The real Python helper computes the copy plan and verifies the simulated results. Tests clean up their temporary files automatically and run without Codex, the Drive plugin, or Google credentials.
+
+GitHub Actions runs this suite on an Ubuntu runner for pushes to `main` and pull requests targeting it. The badge shows the latest push result on `main`. Open a workflow run to see its test counts and logs.

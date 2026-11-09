@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  helper-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Run helper tests and report results
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import unittest
+
+          suite = unittest.defaultTestLoader.discover("tests")
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+
+          # Count a test once even when several of its subtests fail.
+          failed = {getattr(test, "test_case", test)
+                    for test, _ in result.failures + result.errors}
+          failed.update(result.unexpectedSuccesses)
+          skipped = {getattr(test, "test_case", test) for test, _ in result.skipped} - failed
+          expected = {test for test, _ in result.expectedFailures}
+          passed = result.testsRun - len(failed | skipped | expected)
+
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
+              "## Helper test results\n\n"
+              f"- Passed: {passed}\n"
+              f"- Failed (including errors): {len(failed)}\n"
+              f"- Skipped: {len(skipped)}\n"
+              f"- Expected failures: {len(expected)}\n",
+              encoding="utf-8",
+          )
+          raise SystemExit(0 if result.wasSuccessful() else 1)
+          PY
