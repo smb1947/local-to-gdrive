@@ -1,6 +1,8 @@
 ---
 name: local-to-gdrive
 description: Mirror local folders from Documents to My Drive/Codex. Preview changes or manage saved destinations. Set up Google Drive when needed.
+metadata:
+  version: "0.1.0"
 ---
 
 # Local to GDrive

@@ -2,7 +2,7 @@
 
 [![Tests on main](https://github.com/smb1947/local-to-gdrive/actions/workflows/tests.yml/badge.svg?branch=main&event=push)](https://github.com/smb1947/local-to-gdrive/actions/workflows/tests.yml?query=branch%3Amain+event%3Apush)
 
-A Codex skill that mirrors a local project folder to Google Drive on demand. Keep working locally, preview what will change, and transfer only new or changed files. Current version is `v0.1.0`.
+A Codex skill that mirrors a local project folder to Google Drive on demand. Keep working locally, preview what will change, and transfer only new or changed files.
 
 ## Usage
 
