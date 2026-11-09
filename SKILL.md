@@ -5,7 +5,7 @@ license: MIT
 metadata:
   version: "0.1.0"
   repository: "https://github.com/smb1947/local-to-gdrive"
-  maintainer: "smb1947"
+  maintainer: "Shankar Bhinjwargi"
   compatibility: "Requires Codex, Python 3.9 or later, and access to the Google Drive plugin."
 ---
 
