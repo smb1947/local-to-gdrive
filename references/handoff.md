@@ -122,6 +122,18 @@ Get the current revision from the successful write response if available, otherw
 4. Move only blocking type conflicts before copying. Create planned folders in parent order. Use raw uploads and replace changed bytes under the existing Drive ID. Confirm every transfer with fresh metadata and the current revision, and run `finish` with observed receipts. Check uncertain operations before retrying. If any transfer fails or the source scan changes, stop before moving obsolete items.
 5. After recovery, re-list the complete destination and refresh matching file sizes and revision IDs. Run `verify-mirror --plan <plan.json> --remote <fresh-remote.json>`. It rescans the source and checks both trees using the same exclusions. Report a completed mirror only if verification succeeds. Report copied, unchanged, recovered, and failed items with the destination and recovery links when applicable. The helper's `finish` result verifies transfers only.
 
+## Run logs
+
+Add `--record-run` to the apply plan command. The helper writes one JSON Lines file to `~/.config/codex2gdrive/runs/<run_id>.jsonl` when a plan is created. Omit the flag for previews. The first record contains the relative source and destination trees from the planning inventories and the paths grouped by planned action.
+
+```bash
+python3 <skill>/scripts/drive_sync.py plan --mirror --record-run --local local.json --remote remote.json --output plan.json
+python3 <skill>/scripts/drive_sync.py checkpoint --plan plan.json execution_started
+python3 <skill>/scripts/drive_sync.py checkpoint --plan plan.json transfers --completed 12 --failed 0
+```
+
+Use `folders_created`, `transfers`, or `recovery` after each batch. Supply cumulative counts for the stage when available. Use `stopped` if the run exits early. Record counts from observed results. `finish` and `verify-mirror` append their outcomes automatically when a run log exists. Use the original plan for these commands so the run ID matches the log. The helper keeps log files private and reports write failures without changing the copy result.
+
 ## Persisted state
 
 All state is per user under `~/.config/codex2gdrive/`.
@@ -133,6 +145,7 @@ All state is per user under `~/.config/codex2gdrive/`.
 | `connector-maintenance.json` | Daily dependency check, test attempt and passing-test times |
 | `connector-maintenance.lock` | Serializes daily tests across concurrent invocations |
 | `connector-sync.log` | Timestamped JSON lines for mapping changes, tests, per-file verification, and run results |
+| `runs/<run_id>.jsonl` | Source and destination trees, copy plan, and execution checkpoints for one apply plan |
 | `last-connector-run.json` | Most recent verified summary and per-file failures |
 
 Legacy rclone mappings and OAuth client files are not read or migrated automatically. Rebind through plugin metadata on first use. Existing cloud files remain untouched.

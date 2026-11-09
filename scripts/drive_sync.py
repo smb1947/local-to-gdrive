@@ -68,6 +68,53 @@ def log_event(event, **details):
         handle.write(json.dumps({'time': now().isoformat(), 'event': event, **details}) + '\n')
 
 
+def log_run(run_id, event, *, create=False, **details):
+    """Record a checkpoint without making log availability a condition of copying."""
+    if not isinstance(run_id, str) or not re.fullmatch(r'[a-f0-9]{32}', run_id):
+        return False
+    path = state_dir() / 'runs' / f'{run_id}.jsonl'
+    try:
+        flags = os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW
+        if create:
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            flags |= os.O_CREAT | os.O_EXCL
+        with os.fdopen(os.open(path, flags, 0o600), 'a', encoding='utf-8') as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            handle.write(json.dumps({'time': now().isoformat(), 'event': event, **details}) + '\n')
+    except OSError as exc:
+        if create or not isinstance(exc, FileNotFoundError):
+            print(f'Could not write run log {path}: {exc}', file=sys.stderr)
+        return False
+    return True
+
+
+def log_copy_plan(manifest, remote, plan):
+    actions = plan['actions']
+    log_run(
+        plan['run_id'], 'plan_created', create=True,
+        source=manifest['source'], destination=plan['mapping']['destination_path'],
+        source_tree={
+            'folders': manifest['folders'],
+            'files': [item['path'] for item in manifest['files']],
+            'skipped_empty': manifest.get('ignored_empty', []),
+        },
+        destination_tree=[
+            {'path': item['path'], 'kind': item['kind']} for item in remote.get('files', [])
+            if 'source_snapshot' not in plan or not any(
+                part.startswith('.') for part in PurePosixPath(item['path']).parts)
+        ],
+        copy_plan={
+            'new': [item['path'] for item in actions if item['action'] == 'upload'],
+            'update': [item['path'] for item in actions if item['action'] == 'update'],
+            'skipped': [item['path'] for item in actions if item['action'] == 'skip'],
+            'create_folders': plan.get('create_folders', []),
+            'recover_before_copy': [item['path'] for item in plan.get('recover_before_copy', [])],
+            'recover_after_copy': [item['path'] for item in plan.get('recover_after_copy', [])],
+            'errors': [item['path'] for item in plan['errors']],
+        },
+    )
+
+
 def relative(value):
     if not isinstance(value, str) or not value or any(c in value for c in ('\\', ':', '\x00', '\n', '\r')):
         raise SyncError('Use a relative folder path such as sample-project or work/notes.')
@@ -616,6 +663,13 @@ def main(argv=None):
     plan.add_argument('--remote', required=True)
     plan.add_argument('--output', required=True)
     plan.add_argument('--mirror', action='store_true')
+    plan.add_argument('--record-run', action='store_true', help='Create a local log for an apply run.')
+    checkpoint = sub.add_parser('checkpoint')
+    checkpoint.add_argument('--plan', required=True)
+    checkpoint.add_argument('stage', choices=('execution_started', 'folders_created',
+                                               'transfers', 'recovery', 'stopped'))
+    checkpoint.add_argument('--completed', type=int)
+    checkpoint.add_argument('--failed', type=int)
     record = sub.add_parser('finish')
     record.add_argument('--plan', required=True)
     record.add_argument('--receipts', required=True)
@@ -623,6 +677,7 @@ def main(argv=None):
     verify.add_argument('--plan', required=True)
     verify.add_argument('--remote', required=True)
     args = parser.parse_args(argv)
+    run_id = None
     try:
         if args.command == 'preflight':
             result = preflight(read_json(args.capabilities), mirror=args.mirror)
@@ -649,15 +704,35 @@ def main(argv=None):
             write_json(state_dir() / 'connector-mappings.json', config)
             result = {'removed': key, 'files_deleted': False}
         elif args.command == 'plan':
-            result = build_plan(read_json(args.local), read_json(args.remote), mirror=args.mirror)
+            local = read_json(args.local)
+            remote = read_json(args.remote)
+            result = build_plan(local, remote, mirror=args.mirror)
             write_json(args.output, result)
+            if args.record_run:
+                log_copy_plan(local, remote, result)
+        elif args.command == 'checkpoint':
+            run_id = read_json(args.plan).get('run_id')
+            counts = {key: value for key, value in (
+                ('completed', args.completed), ('failed', args.failed)) if value is not None}
+            result = {'logged': log_run(run_id, args.stage, **counts)}
         elif args.command == 'finish':
-            result = finish(read_json(args.plan), read_json(args.receipts))
+            planned = read_json(args.plan)
+            if isinstance(planned, dict):
+                run_id = planned.get('run_id')
+            result = finish(planned, read_json(args.receipts))
+            log_run(run_id, 'finish', status=result['status'], counts=result['counts'])
         else:
-            result = verify_mirror(read_json(args.plan), read_json(args.remote))
+            planned = read_json(args.plan)
+            if isinstance(planned, dict):
+                run_id = planned.get('run_id')
+            result = verify_mirror(planned, read_json(args.remote))
+            log_run(run_id, 'verify_mirror', status=result['status'],
+                    difference_count=len(result['differences']))
         print(json.dumps(result, indent=2))
         return 1 if result.get('status') == 'failed' else 0
     except (SyncError, OSError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
+        if args.command in ('finish', 'verify-mirror'):
+            log_run(run_id, args.command.replace('-', '_'), status='failed')
         print(json.dumps({'status': 'failed', 'error': str(exc)}), file=sys.stderr)
         return 1
 
